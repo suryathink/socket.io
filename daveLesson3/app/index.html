@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web Sockets</title>
+    <script
+      src="https://cdn.socket.io/4.7.3/socket.io.min.js"
+      integrity="sha384-+miq58Ltmjm+SSP5g8Ok6dpMO/6R4n8xe/x1Yj0Bdb9kiEz25LTnWv/GZQTRQamg"
+      crossorigin="anonymous"
+    ></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <form>
+      <input type="text" placeholder="Your Message" />
+      <button>Send</button>
+    </form>
+    <ul></ul>
+  </body>
+</html>
+<script>
+  const socket = new io("ws://localhost:3500");
+
+  function sendMessage(e) {
+    e.preventDefault();
+    const input = document.querySelector("input");
+
+    if (input.value) {
+      socket.emit("message", input.value);
+      input.value = "";
+    }
+    input.focus();
+  }
+
+  document.querySelector("form").addEventListener("submit", sendMessage);
+
+  // Listen for messages
+  socket.on("message", (data) => {
+    const li = document.createElement("li");
+    li.textContent = data;
+    document.querySelector("ul").appendChild(li);
+  });
+</script>
