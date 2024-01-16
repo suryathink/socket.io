@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Client</title>
+    <script
+      src="https://cdn.socket.io/4.7.3/socket.io.min.js"
+      integrity="sha384-+miq58Ltmjm+SSP5g8Ok6dpMO/6R4n8xe/x1Yj0Bdb9kiEz25LTnWv/GZQTRQamg"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <h1>Chat</h1>
+    <button onclick="sendMessage()">Send</button>
+    <p>Total Active Users <b id="usercount">0</b></p>
+    <input type="text" placeholder="message" id="input-text" />
+  </body>
+</html>
+
+<script>
+  //  `transports` -> tells browser that it is a socket connection
+  const socket = io("http://localhost:8000", { transports: ["websocket"] }); // way to setup socket in client side
+
+  socket.on("message", (msg) => {
+    console.log(msg.toString());
+  });
+  socket.on("newuser", (count) => {
+    console.log("Emit User" + count.toString() + "");
+  });
+
+  socket.on("usercount", (count) => {
+    console.log("count : " + count.toString());
+    const count_tag = document.getElementById("usercount");
+    count_tag.innerText = count;
+  });
+
+  const sendMessage = () => {
+    let message = document.getElementById("input-text").value;
+    socket.emit("message", message);
+    message=""
+  };
+</script>
