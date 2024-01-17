@@ -1,0 +1,2 @@
+Learned about How to Listen to activity
+like `someone is typing`
