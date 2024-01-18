@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web Sockets</title>
+    <script
+      src="https://cdn.socket.io/4.7.3/socket.io.min.js"
+      integrity="sha384-+miq58Ltmjm+SSP5g8Ok6dpMO/6R4n8xe/x1Yj0Bdb9kiEz25LTnWv/GZQTRQamg"
+      crossorigin="anonymous"
+    ></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+    <form class="form-join">
+      <input type="text" id="name" maxlength="8" placeholder="Your Name" size="5" required>
+      <input type="text" id="room" maxlength="8" placeholder="Chat Room" size="5" required>
+      <button id="join" type="submit">Join</button>
+    </form>
+
+    <ul class="chat-display"></ul>
+      
+    <p class="user-list"></p>
+
+    <p class="room-list"></p>
+    
+    <p class="activity"></p>
+
+
+    <form class="form-msg">
+      <input type="text" id="message" placeholder="Your Message" required />
+      <button type="submit">Send</button>
+    </form>
+  </main>
+  </body>
+</html>
+<script>
+  const socket = new io("ws://localhost:3500");
+  
+  const activity = document.querySelector(".activity");
+  const msgInput = document.querySelector("#message");
+  const nameInput = document.querySelector("#name");
+  const chatRoom = document.querySelector("#room");
+  const usersList = document.querySelector(".user-list");
+  const roomList = document.querySelector(".room-list");
+  const chatDisplay = document.querySelector(".chat-display");
+
+
+  function sendMessage(e) {
+    e.preventDefault();
+
+    if (nameInput.value && msgInput.value && chatRoom.value) {
+      socket.emit("message", {
+        name:nameInput.value,
+        text:msgInput.value
+      });
+      msgInput.value = "";
+    }
+    msgInput.focus();
+  }
+
+  function enterRoom(e){
+   e.preventDefault();
+   if (nameInput.value && chatRoom.value){
+    socket.emit('enterRoom',{
+      name:nameInput.value,
+      room:chatRoom.value,
+    })
+   }
+  }
+  document.querySelector(".form-msg").addEventListener("submit", sendMessage);
+  
+  document.querySelector(".form-join").addEventListener("submit", enterRoom);
+
+  msgInput.addEventListener("keypress", () => {
+    socket.emit("activity", nameInput.value);
+  });
+
+
+  // Listen for messages
+  socket.on("message", (data) => {
+    activity.textContent = "";
+    const li = document.createElement("li");
+    li.textContent = data;
+    document.querySelector("ul").appendChild(li);
+  });
+
+  
+
+  // Listening for Activity
+  let activityTimer;
+
+  socket.on("activity", (activityInformation) => {
+    activity.textContent = activityInformation;
+
+    // Clear after 3 seconds
+    clearTimeout(activityTimer);
+    activityTimer = setTimeout(() => {
+      activity.textContent = "";
+    }, 3000);
+  });
+</script>
