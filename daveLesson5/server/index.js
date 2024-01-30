@@ -18,7 +18,6 @@ const expressServer = app.listen(PORT, () => {
   console.log(`Listening on Port ${PORT}`);
 });
 
-
 const io = new Server(expressServer, {
   cors: {
     origin: "*", // means no one is blocked
@@ -26,79 +25,135 @@ const io = new Server(expressServer, {
 });
 
 io.on("connection", (socket) => {
-  console.log(`User ${socket.id} connected`);
-
   // upon connection inform only to user
-  socket.emit("message",buildMsg(ADMIN,"Welcome to Chat App"));
+  socket.emit("message", buildMsg(ADMIN, "Welcome to Chat App"));
 
-  // Upon Connection inform to all others except that particular user
-  socket.broadcast.emit("message", `User ${socket.id} connected`);
+  socket.on("enterRoom", ({ name, room }) => {
+    // leave previous room if he was in previous room
+    const prevRoom = getUser(socket.id)?.room;
 
+    if (prevRoom) {
+      socket.leave(prevRoom);
+      io.to(prevRoom).emit(
+        "message",
+        buildMsg(ADMIN, `${name} has left the room`)
+      ); // it will only broadcast to the previous room
+    }
 
-  // Listening for a message event
-  socket.on("message", (data) => {
-    io.emit("message", `${socket.id}: ${data}`);
+    const user = activateUser(socket.id, name, room);
+
+    // cannot update previous room users list until after the state update in activate user
+
+    if (prevRoom) {
+      io.to(prevRoom).emit("userList", {
+        users: getUsersInRoom(prevRoom),
+      });
+    }
+
+    // Join the new Room
+    socket.join(user.room);
+
+    // To user who joined
+    socket.emit(
+      "message",
+      buildMsg(ADMIN, `You have joined the ${user.room} chat room`)
+    );
+
+    // To Everyone else
+    socket.broadcast
+      .to(user.room)
+      .emit("message", buildMsg(ADMIN, `${user.name} has joined the room`));
   });
 
+  // update user list for room
+  io.to(user.room).emit("userList", {
+    users: getUsersInRoom(user.room),
+  });
+
+  //  update rooms list for everyone
+  io.emit("roomList", {
+    rooms: getAllActiveRooms(),
+  });
 
   // When user disconnects, inform to all others
-  socket.on('disconnect',()=>{
-    console.log(`User ${socket.id} Disconnected`);
-    socket.broadcast.emit("message", `User ${socket.id} Disconnected`);
-  })
-  
-  // Listen for Activity
-  socket.on("activity", (username) => {
-    socket.broadcast.emit("activity", ` ${username} is Typing...`);
+  socket.on("disconnect", () => {
+    const user = getUser(socket.id);
+    userLeavesApp(user);
+    if (user) {
+      io.to(user.room).emit(
+        "message",
+        buildMsg("ADMIN", `${user.name} has left the room`)
+      );
+
+      io.to(user.room).emit("userList", {
+        users: getUsersInRoom(user.room),
+      });
+      io.emit("roomList", {
+        rooms: getAllActiveRooms,
+      });
+    }
+    console.log(`User ${socket.id} disconnected`);
   });
 
+  // Listening for a message event
+  socket.on("message", ({ name, text }) => {
+    const room = getUser(socket.id)?.room;
+    if (room) {
+      io.to(room).emit("message", buildMsg(name, text));
+    }
+  });
+
+  // Listen for Activity
+  socket.on("activity", (name) => {
+    const room = getUser(socket.id)?.room;
+    if (room) {
+      socket.broadcast.to(room).emit("activity", name);
+    }
+  });
 });
 
-// State for users
-const UsersState = {
-  users:[],
-  setUsers: function(newUsersArray){
-    this.users= newUsersArray
-  }
-}
-
-
-function buildMsg(name,text){
+function buildMsg(name, text) {
   return {
     name,
     text,
-    time: new Intl.DateTimeFormat('default',{
-      hour:"numeric",
-      minute:"numeric",
-      second:"numeric"
-    }).format(new Date())
-  }
+    time: new Intl.DateTimeFormat("default", {
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+    }).format(new Date()),
+  };
 }
+
+// State for users
+const UsersState = {
+  users: [],
+  setUsers: function (newUsersArray) {
+    this.users = newUsersArray;
+  },
+};
 
 //  User Functions
-function activateUser(id,name,room){
- const user = {id,name,room}
- UsersState.setUsers([
-    ...UsersState.users.filter(user => user.id !== id),
-    user
- ])
- return user
-}
-
-function userLeavesApp(id){
+function activateUser(id, name, room) {
+  const user = { id, name, room };
   UsersState.setUsers([
-   UsersState.users.filter(user => user.id !== id)
- ])
+    ...UsersState.users.filter((user) => user.id !== id),
+    user,
+  ]);
+  return user;
 }
 
-function getUser(id){
-  return UsersState.users.find(user => user.id === id)
+function userLeavesApp(id) {
+  UsersState.setUsers([UsersState.users.filter((user) => user.id !== id)]);
 }
 
-function getUsersInRoom(room){
-  return UsersState.users.find(user => user.room === room)
+function getUser(id) {
+  return UsersState.users.find((user) => user.id === id);
 }
 
-function getAllActiveRooms(){
-  return Array.from(new Set(UsersState.users.map(user => user.room)))
+function getUsersInRoom(room) {
+  return UsersState.users.find((user) => user.room === room);
+}
+
+function getAllActiveRooms() {
+  return Array.from(new Set(UsersState.users.map((user) => user.room)));
 }
